@@ -10,3 +10,7 @@ export const formatSize = (bytes: number): string => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
+export const generateUUID = (): string => {
+    return crypto.randomUUID();
+}
+

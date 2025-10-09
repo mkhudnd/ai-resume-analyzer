@@ -32,7 +32,7 @@ const FileUploader = ({onFileselect} : FileUploaderProps) => {
             </div>
                
            </div>
-           <button>
+           <button className="p-2 cursor-pointer" onClick={() => onFileselect?.(null)}>
             <img src="/icons/cross.svg" alt="remove" className="w-4 h-4" />
            </button>
             </div>

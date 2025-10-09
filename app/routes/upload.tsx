@@ -1,8 +1,15 @@
 import {useState, type FormEvent} from 'react'
+import { useNavigate } from 'react-router'
 import Navbar from '../components/Navbar'
 import FileUploader from '../components/FileUploader'
+import { usePuterStore } from '~/lib/puter'
+import { convertPdfToImage } from '~/lib/pdf2image'
+import { generateUUID } from '~/lib/utils';
+import { prepareInstructions, AIResponseFormat } from '../../constants';
 
 const Upload = () => {
+    const{ auth, isLoading, fs, ai, kv } = usePuterStore();
+    const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false)
     const [statusText,  setStatusText] = useState<string>('');
 
@@ -16,8 +23,54 @@ const Upload = () => {
       { 
         setIsProcessing(true);
         setStatusText('Analyzing your CV...');
-        
+        const uploadFile = await fs.upload([File]); 
+
+        if(!uploadFile) {
+          return setStatusText('Failed to upload your CV');
+        }
+
+        setStatusText('Converting to image...');
+        const imageFile = await convertPdfToImage(File);
+        if (!imageFile.file) {
+          return setStatusText('Error: Failed to convert PDF to image');
+        }
+
+        setStatusText('Uploading image...');
+        const uploadedImage = await fs.upload([imageFile.file as File]);
+        if (!uploadedImage) {
+          return setStatusText('Error: Failed to upload image');
+        }
+
+        setStatusText('Preparing data...');
+
+        const uuid = generateUUID();
+        const data = {
+          id: uuid,
+          resumePath: uploadFile.path,
+          imagePath: uploadedImage.path,
+          companyName: CompanyName,
+          jobTitle: JobTitle,
+          jobDescription: JobDescription,
+          feedback: '',
+        }
+        await kv.set(`resume:${uuid}`, JSON.stringify(data));
+        setStatusText('Analyzing your CV...');
+        const feedback = await ai.feedback(uploadedImage.path, prepareInstructions({jobTitle: JobTitle, jobDescription: JobDescription, AIResponseFormat}))
+
+        if(!feedback) {
+          return setStatusText('Error: Failed to analyze your CV');
+        }
+
+        const feedbackText = typeof feedback.message.content === 'string' ? feedback.message.content : feedback.message.content[0].text;
+
+        data.feedback = JSON.parse(feedbackText);
+        await kv.set(`resume:${uuid}`, JSON.stringify(data));
+        setStatusText('CV analyzed successfully, redirecting to result page...');
+        console.log(data);
+
       }
+
+      
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -36,9 +89,6 @@ const Upload = () => {
       }
 
       handleAnalyze({CompanyName: companyName, JobTitle: jobTitle, JobDescription: jobDescription, File: file});
-
-
-
     }
   return (
     <main className="bg-[url('/images/bg-main.svg')] bg-cover">
