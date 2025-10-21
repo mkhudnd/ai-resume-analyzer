@@ -2,12 +2,15 @@ import {Link} from "react-router";
 import ScoreCircle from "./ScoreCircle";
 import { useEffect, useState } from "react";
 import { usePuterStore } from "~/lib/puter";
+import { computeOverallScore } from "~/lib/utils";
 
 
 const ResumeCard = ({ resume: { id, companyName, jobTitle, feedback, imagePath } }: { resume: Resume }) => {
 
     const [resumeUrl, setResumeUrl] = useState<string | null>(null);
     const { auth, fs } = usePuterStore();
+
+    const score = computeOverallScore(feedback);
 
     useEffect(() => {
         const loadResume = async () => {
@@ -28,7 +31,7 @@ const ResumeCard = ({ resume: { id, companyName, jobTitle, feedback, imagePath }
             {!companyName && !jobTitle && <h2 className="!text-black font-bold">CV</h2>}
         </div>
         <div className="flex-shrink-0">
-            <ScoreCircle score={feedback.overallScore}/>
+            <ScoreCircle score={score}/>
             </div>
         </div>
         {resumeUrl && (

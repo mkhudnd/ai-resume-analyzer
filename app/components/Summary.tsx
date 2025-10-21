@@ -1,5 +1,6 @@
 import ScoreGauge from './ScoreGauge'
 import ScoreBadge from './ScoreBadge'
+import { computeOverallScore } from '~/lib/utils'
 
 const Category = ({ title, score }: { title: string, score: number }) => {
     const textColor = score > 70 ? 'text-green-600' : score > 49 ? 'text-yellow-600' : 'text-red-600';
@@ -25,7 +26,7 @@ const Summary = ({ feedback }: SummaryProps) => {
   return (
     <div className="bg-white rounded-2xl shadow-md w-full">
         <div className="flex flex-row items-center p-4 gap-8">
-            <ScoreGauge score={feedback.overallScore}/>
+            <ScoreGauge score={computeOverallScore(feedback)}/>
             <div className="flex flex-col gap-2">
                 <h2 className="text-2xl font-bold">Your CV score</h2>
                 <p className="text-sm text-gray-500">Your CV score is based on the variables below</p>

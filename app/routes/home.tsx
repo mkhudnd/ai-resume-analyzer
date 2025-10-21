@@ -28,9 +28,11 @@ export default function Home() {
 
       const resumes = (await kv.list('resume:*', true)) as KVItem[];
 
-      const parsedResumes = resumes?.map((resume) => (
-        JSON.parse(resume.value) as Resume
-      ))
+      const parsedResumes = resumes?.map((resume) => {
+        const parsed = JSON.parse(resume.value) as Resume;
+        console.log('Loaded resume:', parsed.id, 'feedback:', parsed.feedback);
+        return parsed;
+      })
 
       setResumes(parsedResumes || []);
       setLoadingResumes(false);
@@ -46,7 +48,7 @@ export default function Home() {
       <div className="page-heading py-16">
         <h1>Track Your Applications & CV Ratings</h1>
         {!loadingResumes && resumes?.length === 0 ? (
-          <h2>No resumes found. Upload your first resume to get feedback.</h2>
+          <h2>No CVs found. Upload your first resume to get feedback.</h2>
         ) : (
           <h2>Review your submissions and check AI-powered feedback.</h2>
         )}
@@ -68,7 +70,7 @@ export default function Home() {
       {!loadingResumes && resumes?.length === 0 && (
         <div className="flex flex-col items-center justify-center mt-10 gap-4">
           <Link to="/upload" className="primary-button w-fit text-xl font-semibold">
-            Upload Resume
+            Upload CV
           </Link>
         </div>
       )}

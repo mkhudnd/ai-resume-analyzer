@@ -28,10 +28,13 @@ const Upload = () => {
     const handleAnalyze = async ({CompanyName, JobTitle, JobDescription, File}: {CompanyName: string, JobTitle: string, JobDescription: string, File: File  }) => 
       { 
         try {
+          console.log('Starting CV analysis...');
           setIsProcessing(true);
-          setStatusText('Analyzing your CV...');
+          setStatusText('Uploading your CV...');
           
-          const uploadFile = await fs.upload([File]); 
+          console.log('Uploading file to Puter...');
+          const uploadFile = await fs.upload([File]);
+          console.log('Upload result:', uploadFile); 
 
           if(!uploadFile) {
             setStatusText('Failed to upload your CV. Please try again.');
@@ -40,7 +43,9 @@ const Upload = () => {
           }
 
           setStatusText('Converting to image...');
+          console.log('Converting PDF to image...');
           const imageFile = await convertPdfToImage(File);
+          console.log('Image conversion result:', imageFile);
           if (!imageFile.file) {
             setStatusText('Error: Failed to convert PDF to image');
             setIsProcessing(false);
@@ -48,7 +53,9 @@ const Upload = () => {
           }
 
           setStatusText('Uploading image...');
+          console.log('Uploading image to Puter...');
           const uploadedImage = await fs.upload([imageFile.file as File]);
+          console.log('Image upload result:', uploadedImage);
           if (!uploadedImage) {
             setStatusText('Error: Failed to upload image');
             setIsProcessing(false);
@@ -67,9 +74,12 @@ const Upload = () => {
             jobDescription: JobDescription,
             feedback: '',
           }
+          console.log('Saving initial data to KV...');
           await kv.set(`resume:${uuid}`, JSON.stringify(data));
-          setStatusText('Analyzing your CV...');
+          setStatusText('Analyzing your CV with AI...');
+          console.log('Calling AI feedback...');
           const feedback = await ai.feedback(uploadedImage.path, prepareInstructions({jobTitle: JobTitle, jobDescription: JobDescription, AIResponseFormat}))
+          console.log('AI feedback response:', feedback);
 
           if(!feedback) {
             setStatusText('Error: Failed to analyze your CV');
@@ -77,12 +87,46 @@ const Upload = () => {
             return;
           }
 
-          const feedbackText = typeof feedback.message.content === 'string' ? feedback.message.content : feedback.message.content[0].text;
+          // Check if the response indicates an error
+          if (feedback && typeof feedback === 'object' && 'success' in feedback && !feedback.success) {
+            const errorMsg = feedback.error?.message || 'Unknown error occurred';
+            if (errorMsg.includes('usage-limited') || errorMsg.includes('Permission denied')) {
+              throw new Error('AI usage limit reached. Please try again later or upgrade your Puter account.');
+            }
+            throw new Error(errorMsg);
+          }
 
-          data.feedback = JSON.parse(feedbackText);
+          let feedbackText = typeof feedback.message.content === 'string' ? feedback.message.content : feedback.message.content[0].text;
+
+          console.log('Raw AI feedback:', feedbackText);
+
+          // Clean the feedback text - remove markdown code blocks if present
+          let cleanedFeedback = feedbackText.trim();
+          
+          // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+          if (cleanedFeedback.startsWith('```')) {
+            cleanedFeedback = cleanedFeedback.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+          }
+          
+          // Try to find JSON object if there's extra text
+          const jsonMatch = cleanedFeedback.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanedFeedback = jsonMatch[0];
+          }
+
+          console.log('Cleaned feedback before parsing:', cleanedFeedback);
+          
+          try {
+            data.feedback = JSON.parse(cleanedFeedback);
+          } catch (parseError) {
+            console.error('JSON Parse Error:', parseError);
+            console.error('Failed to parse this text:', cleanedFeedback);
+            throw new Error('AI returned invalid JSON. Please try again.');
+          }
+          
           await kv.set(`resume:${uuid}`, JSON.stringify(data));
           setStatusText('CV analyzed successfully, redirecting to result page...');
-          console.log(data);
+          console.log('Successfully parsed data:', data);
           navigate(`/resume/${uuid}`);
         } catch (error) {
           console.error('Error analyzing CV:', error);
